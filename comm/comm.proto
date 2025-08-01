@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package comm;
+option go_package = "internal/comm";
+
+message Command {
+  string        command = 1;
+  repeated      string args = 2;
+}
+
+message Response {
+  string        client_id = 1;
+  string        req_id = 2;
+  string        status = 3;
+  bytes         result = 4;
+}

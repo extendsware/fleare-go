@@ -13,46 +13,51 @@ func main() {
 	client := fleare.CreateClient(&fleare.Options{
 		Host:     "127.0.0.1",
 		Port:     9219,
-		PoolSize: 10,
-		// Username: "root",
-		// Password: "root",
+		PoolSize: 150,
 	})
-
-	// Set up event monitoring
-	// go monitorEvents(client)
 
 	err := client.Connect()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	start := time.Now()
 
-	th := 20
+	th := 100
+	numRequests := 1000
 	var wg sync.WaitGroup
-	numRequests := 10
 	wg.Add(th)
+
+	var mu sync.Mutex
+	var successCount, errorCount int
 
 	for i := 0; i < th; i++ {
 		go func(i int) {
 			defer wg.Done()
-			for i := 0; i < numRequests; i++ {
-				_, err := client.Ping()
+			for j := 0; j < numRequests; j++ {
+				_, err := client.Ping(fmt.Sprintf("%d-%d", i, j))
+				mu.Lock()
 				if err != nil {
-					fmt.Println("Error getting value:", err)
+					errorCount++
+				} else {
+					successCount++
 				}
+				mu.Unlock()
 			}
-
 		}(i)
 	}
-
 	wg.Wait()
 
 	elapsed := time.Since(start)
-	fmt.Println("Execution took %s for %d requests.", elapsed, (numRequests * th))
+	totalRequests := numRequests * th
 
-	// Block main goroutine to keep connection alive
-	// select {}
+	fmt.Printf("Execution took %s for %d requests.\n", elapsed, totalRequests)
+	fmt.Printf("Success: %d\n", successCount)
+	fmt.Printf("Errors: %d\n", errorCount)
+	if elapsed > 0 {
+		fmt.Printf("Requests per second: %.2f\n", float64(totalRequests)/elapsed.Seconds())
+	}
 }
 
 func monitorEvents(client *fleare.Client) {

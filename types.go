@@ -96,6 +96,6 @@ func (o *Options) setDefaults() {
 		o.MaxRetries = 3
 	}
 	if o.MaxQueueSize == 0 {
-		o.MaxQueueSize = 100000
+		o.MaxQueueSize = 10
 	}
 }

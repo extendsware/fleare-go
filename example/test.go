@@ -170,7 +170,7 @@ func main() {
 	start := time.Now()
 
 	// Set the number of clients and messages per client
-	clients := 10
+	clients := 300
 	messagesPerClient := 100
 
 	results := runLoadTest(serverAddr, clients, messagesPerClient)

@@ -25,31 +25,37 @@ go get github.com/extendsware/fleare-go
 package main
 
 import (
-	"context"
-	"log"
-	"time"
+	"fmt"
 
 	"github.com/extendsware/fleare-go"
-	"github.com/extendsware/fleare-go/commands"
 )
 
 func main() {
 	// Create client
 	client := fleare.CreateClient(&fleare.Options{
-		Host:     "127.0.0.1",
-		Port:     9219,
-        Username: "admin",
+		Host: "127.0.0.1",
+		Port: 9219,
+		Username: "admin",
 		Password: "password",
 		PoolSize: 10,
 	})
 
-    go monitorEvents(client)
+	go monitorEvents(client)
 
 	err := client.Connect()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	// example of getting a value
+	res, err := client.Get("key-1-1")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Value for 'key':", res)
 
 	defer client.Close()
 }
@@ -64,7 +70,7 @@ func monitorEvents(client *fleare.Client) {
 		case fleare.StateDisconnecting:
 			fmt.Println("Event Disconnecting")
 		case fleare.StateDisconnected:
-			fmt.Println("EventStateChanged", event.State)
+			fmt.Println("Event Disconnected")
 		case fleare.StateError:
 			fmt.Printf("Event error: %v", event.Error)
 		}

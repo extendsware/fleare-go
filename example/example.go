@@ -13,7 +13,7 @@ func main() {
 	client := fleare.CreateClient(&fleare.Options{
 		Host:     "127.0.0.1",
 		Port:     9219,
-		PoolSize: 150,
+		PoolSize: 250,
 	})
 
 	err := client.Connect()
@@ -25,7 +25,7 @@ func main() {
 	start := time.Now()
 
 	th := 100
-	numRequests := 1000
+	numRequests := 100
 	var wg sync.WaitGroup
 	wg.Add(th)
 
@@ -36,7 +36,7 @@ func main() {
 		go func(i int) {
 			defer wg.Done()
 			for j := 0; j < numRequests; j++ {
-				_, err := client.Ping(fmt.Sprintf("%d-%d", i, j))
+				_, err := client.Get(fmt.Sprintf("key-%d-%d", i, j))
 				mu.Lock()
 				if err != nil {
 					errorCount++

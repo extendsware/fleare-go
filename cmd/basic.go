@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -89,7 +88,7 @@ func (c *BasicCommands) Exists(key string) (bool, error) {
 }
 
 // Status gets the server status
-func (c *BasicCommands) Status(ctx context.Context) (interface{}, error) {
+func (c *BasicCommands) Status() (interface{}, error) {
 	result, err := c.executor.ExecuteCommand("STATUS", []string{})
 	if err != nil {
 		return nil, err

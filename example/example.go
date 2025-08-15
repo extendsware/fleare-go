@@ -13,7 +13,7 @@ func main() {
 	client := fleare.CreateClient(&fleare.Options{
 		Host:     "127.0.0.1",
 		Port:     9219,
-		PoolSize: 250,
+		PoolSize: 1,
 	})
 
 	err := client.Connect()
@@ -21,11 +21,12 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	go monitorEvents(client)
 
 	start := time.Now()
 
-	th := 100
-	numRequests := 100
+	th := 1
+	numRequests := 1
 	var wg sync.WaitGroup
 	wg.Add(th)
 
@@ -62,17 +63,17 @@ func main() {
 
 func monitorEvents(client *fleare.Client) {
 	for event := range client.Events() {
-		switch event.Type {
-		case fleare.EventConnecting:
+		switch event.State {
+		case fleare.StateConnecting:
 			fmt.Println("Event is connecting...")
-		case fleare.EventConnected:
+		case fleare.StateConnected:
 			fmt.Println("Event connected successfully!")
-		case fleare.EventDisconnected:
-			fmt.Println("Event disconnected")
-		case fleare.EventError:
+		case fleare.StateDisconnecting:
+			fmt.Println("Event Disconnecting")
+		case fleare.StateDisconnected:
+			fmt.Println("EventStateChanged", event.State)
+		case fleare.StateError:
 			fmt.Printf("Event error: %v", event.Error)
-		case fleare.EventClosed:
-			fmt.Println("Event connection closed")
 		}
 	}
 }

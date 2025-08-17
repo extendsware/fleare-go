@@ -172,8 +172,8 @@ func (c *Client) Del(key string) (interface{}, error) {
 }
 
 // Exists checks if a key exists in the database
-func (c *Client) Exists(key string) (bool, error) {
-	return c.basicCommands.Exists(key)
+func (c *Client) Exists(key ...string) (int, error) {
+	return c.basicCommands.Exists(key...)
 }
 
 // Ping sends a ping to the server
@@ -184,6 +184,11 @@ func (c *Client) Ping(value ...string) (string, error) {
 // Status gets the server status
 func (c *Client) Status() (interface{}, error) {
 	return c.basicCommands.Status()
+}
+
+// Status gets the server status
+func (c *Client) Session() (interface{}, error) {
+	return c.basicCommands.Session()
 }
 
 // String Operations
@@ -210,8 +215,8 @@ func (c *Client) StrGet(key string) (string, error) {
 }
 
 // StrAppend appends to a string value
-func (c *Client) StrAppend(key string, value string) (interface{}, error) {
-	args := []string{key, value}
+func (c *Client) StrAppend(key string, value ...string) (interface{}, error) {
+	args := append([]string{key}, value...)
 	return c.ExecuteCommand("STR.APPEND", args)
 }
 
@@ -309,17 +314,30 @@ func (c *Client) NumDecr(key string, decrement ...float64) (float64, error) {
 // List Operations
 
 // ListSet sets a list value
-func (c *Client) ListSet(key string, list []interface{}) (interface{}, error) {
+func (c *Client) ListSet(key string, list ...interface{}) (interface{}, error) {
 	args := []string{key}
 
-	// Convert list to JSON string
-	jsonBytes, err := json.Marshal(list)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal list to JSON: %w", err)
+	for _, value := range list {
+		valueStr, err := c.valueToString(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert value to string: %w", err)
+		}
+		args = append(args, valueStr)
 	}
 
-	args = append(args, string(jsonBytes))
 	return c.ExecuteCommand("LIST.SET", args)
+}
+
+func (c *Client) ListISet(key string, index int, value interface{}) (interface{}, error) {
+	args := []string{key, fmt.Sprintf("%d", index)}
+
+	valueStr, err := c.valueToString(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert value to string: %w", err)
+	}
+	args = append(args, valueStr)
+
+	return c.ExecuteCommand("LIST.ISET", args)
 }
 
 // ListPush pushes values to a list
@@ -379,32 +397,17 @@ func (c *Client) ListLen(key string) (int, error) {
 }
 
 // ListFind finds a value in a list
-func (c *Client) ListFind(key string, value interface{}) (int, error) {
-	args := []string{key}
+func (c *Client) ListFind(key string, expression string) (interface{}, error) {
+	args := []string{key, expression}
 
-	valueStr, err := c.valueToString(value)
-	if err != nil {
-		return -1, fmt.Errorf("failed to convert value to string: %w", err)
-	}
-	args = append(args, valueStr)
-
-	result, err := c.ExecuteCommand("LIST.FIND", args)
-	if err != nil {
-		return -1, err
-	}
-
-	if resultStr, ok := result.(string); ok {
-		return strconv.Atoi(resultStr)
-	}
-
-	return -1, fmt.Errorf("unexpected result type for ListFind")
+	return c.ExecuteCommand("LIST.FIND", args)
 }
 
 // JSON Operations
 
 // JsonSet sets a JSON value at the specified path
-func (c *Client) JsonSet(key string, path string, value interface{}) (interface{}, error) {
-	args := []string{key, path}
+func (c *Client) JsonSet(key string, value interface{}) (interface{}, error) {
+	args := []string{key}
 
 	valueStr, err := c.valueToString(value)
 	if err != nil {
@@ -418,10 +421,9 @@ func (c *Client) JsonSet(key string, path string, value interface{}) (interface{
 // JsonGet gets a JSON value at the specified path
 func (c *Client) JsonGet(key string, path ...string) (interface{}, error) {
 	args := []string{key}
-	if len(path) > 0 && path[0] != "" {
-		args = append(args, path[0])
+	if len(path) > 0 {
+		args = append(args, path...)
 	}
-
 	result, err := c.ExecuteCommand("JSON.GET", args)
 	if err != nil {
 		return nil, err
@@ -443,9 +445,28 @@ func (c *Client) JsonAdd(key string, path string, value interface{}) (interface{
 	return c.ExecuteCommand("JSON.ADD", args)
 }
 
-// JsonMerge merges JSON objects
-func (c *Client) JsonMerge(key string, path string, value interface{}) (interface{}, error) {
+func (c *Client) JsonRemove(key string, path string) (interface{}, error) {
 	args := []string{key, path}
+	return c.ExecuteCommand("JSON.REMOVE", args)
+}
+
+func (c *Client) JsonSetRef(key string, value interface{}, refObj interface{}) (interface{}, error) {
+	args := []string{key}
+	valueStr, err := c.valueToString(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert value to string: %w", err)
+	}
+	refStr, err := c.valueToString(refObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert refObj to string: %w", err)
+	}
+	args = append(args, valueStr, refStr)
+	return c.ExecuteCommand("JSON.SETREF", args)
+}
+
+// JsonMerge merges JSON objects
+func (c *Client) JsonMerge(key string, value interface{}) (interface{}, error) {
+	args := []string{key}
 
 	valueStr, err := c.valueToString(value)
 	if err != nil {
@@ -469,6 +490,19 @@ func (c *Client) MapSet(key string, field string, value interface{}) (interface{
 	args = append(args, valueStr)
 
 	return c.ExecuteCommand("MAP.SET", args)
+}
+
+// MapCSet sets a field in a map
+func (c *Client) MapCSet(key string, field string, value interface{}) (interface{}, error) {
+	args := []string{key, field}
+
+	valueStr, err := c.valueToString(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert value to string: %w", err)
+	}
+	args = append(args, valueStr)
+
+	return c.ExecuteCommand("MAP.CSET", args)
 }
 
 // MapGet gets field(s) from a map

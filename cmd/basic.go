@@ -72,24 +72,35 @@ func (c *BasicCommands) Del(key string) (interface{}, error) {
 }
 
 // Exists checks if a key exists in the database
-func (c *BasicCommands) Exists(key string) (bool, error) {
-	args := []string{key}
-	result, err := c.executor.ExecuteCommand("EXISTS", args)
+func (c *BasicCommands) Exists(keys ...string) (int, error) {
+	result, err := c.executor.ExecuteCommand("EXISTS", keys)
 	if err != nil {
-		return false, err
+		return -1, err
 	}
 
-	// Convert result to boolean
 	if resultStr, ok := result.(string); ok {
-		return strconv.ParseBool(resultStr)
+		intVal, err := strconv.Atoi(resultStr)
+		if err != nil {
+			return -1, fmt.Errorf("failed to convert EXISTS result to int: %w", err)
+		}
+		return intVal, nil
 	}
-
-	return false, fmt.Errorf("unexpected result type for EXISTS command")
+	return -1, fmt.Errorf("unexpected result type for EXISTS command: %T", result)
 }
 
 // Status gets the server status
 func (c *BasicCommands) Status() (interface{}, error) {
 	result, err := c.executor.ExecuteCommand("STATUS", []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	return c.parseResult(result)
+}
+
+// Status gets the server status
+func (c *BasicCommands) Session() (interface{}, error) {
+	result, err := c.executor.ExecuteCommand("SESSION", []string{})
 	if err != nil {
 		return nil, err
 	}
